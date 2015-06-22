@@ -4,7 +4,7 @@ Project Notes
 -------------
 
 Instructions for Running:
-./cancellastcopydiscardholds.sh.sh
+./notifycancelholds.sh
 
 Product Description:
 Bash shell script written by Andrew Nisbet for Edmonton Public Library, distributable by the enclosed license.

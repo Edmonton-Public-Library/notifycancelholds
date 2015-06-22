@@ -29,14 +29,14 @@
 PRODUCTION_SERVER=eplapp.library.ualberta.ca
 TEST_SERVER=edpl-t.library.ualberta.ca
 USER=sirsi
-REMOTE=~/Unicorn/EPLwork/anisbet/
-LOCAL=~/projects/cancellastcopydiscardholds.sh/
-APP=cancellastcopydiscardholds.sh.sh
+REMOTE=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds/
+LOCAL=~/projects/notifycancelholds/
+APP=notifycancelholds.sh
 ARGS=
 
 test:
 	scp ${LOCAL}${APP} ${USER}@${TEST_SERVER}:${REMOTE}
-	ssh ${USER}@${TEST_SERVER} '${REMOTE}${APP} ${ARGS}'
+	# ssh ${USER}@${TEST_SERVER} '${REMOTE}${APP} ${ARGS}'
 production: test
 	scp ${LOCAL}${APP} ${USER}@${PRODUCTION_SERVER}:${REMOTE}
 

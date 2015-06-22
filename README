@@ -1,0 +1,19 @@
+=== Mon Jun 22 15:51:12 MDT 2015 ===
+
+Project Notes
+-------------
+
+Instructions for Running:
+./cancellastcopydiscardholds.sh.sh
+
+Product Description:
+Bash shell script written by Andrew Nisbet for Edmonton Public Library, distributable by the enclosed license.
+
+Repository Information:
+This product is under version control using Git.
+
+Dependencies:
+None
+
+Known Issues:
+None

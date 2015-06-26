@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.3 - API selection re-work for MISSING and LOST-ASSUM. 
 #          0.2 - Take a catalogue key as an argument. 
 #          0.1 - Basic infrastructure. 
 #          0.0 - Dev.
@@ -42,9 +43,14 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION=0.2
+VERSION=0.3
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%Y.%m.%d`
+# If an item was charged out and became LOST-ASSUM, wait this amount of time before 
+# cancelling the holds. The reason is; what if someone returns the item, but the holds
+# have been cancelled? Turns out the lending period (21 days) + days as LOST-ASSUM = 51
+# call it 60. After that it is extremely unlikely that the item will be recovered.
+LOST_ASSUM_CHARGE_DATE_THRESHOLD=`transdate -d-60` # 60 days ago.
 HOME=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
 BIN_CUSTOM=/s/sirsi/Unicorn/Bincustom
 # Find and test for all our dependencies.
@@ -74,12 +80,37 @@ then
 	echo "request to cancel holds on '$1'..."
 	echo $1 > $HOME/cat_keys_$DATE.lst
 else
+	# Let's just make sure the person running this has read the warning above.
+	echo -n "Are you sure you want to continue cancelling holds on item with no visible copies? y[n]: "
+	read imsure
+	if [ "$imsure" != "y" ]
+	then
+		echo "... it's ok to be cautious, exiting."
+		exit 1
+	fi
+	echo "Starting data collection..."
 	################### Cancel all titles with zero visible items ######################
-	# API for selecting items with 0 visible copies:
-	# selcatalog -z"=0" | sort  | uniq | selcatalog -z"=0" -iC -h">0" | selhold -iC -j"ACTIVE" -a"N" -oUI 
-	################### Cancelled Orders #####################
-	# API for cancelled cancelled order:
-	selitem -m"CANC_ORDER" -oC | sort  | uniq | selcatalog -z"=0" -iC -h">0" | selhold -iC -j"ACTIVE" -a"N" -oC > $HOME/cat_keys_$DATE.lst
+	# API for selecting items with 0 visible copies with the caveat that we don't want
+	# missing items since they could be found in short order and by then we may have cancelled
+	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
+	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
+	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | pipe.pl -m"c3:$DATE|@" > $HOME/cat_keys_$DATE.tmp$$
+	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
+	then
+		cat $HOME/cat_keys_$DATE.tmp$$ >>cancelled_holds_data.log
+		# Holdbot requires just cat keys on input so trim off the rest of the line.
+		cat $HOME/cat_keys_$DATE.tmp$$ | pipe.pl -o"c0" >$HOME/cat_keys_$DATE.lst
+		if [ -s "$HOME/cat_keys_$DATE.lst" ]
+		then
+			rm $HOME/cat_keys_$DATE.tmp$$
+		else
+			echo "*** error $HOME/cat_keys_$DATE.lst not created."
+			exit 1
+		fi
+	else
+		echo "nothing to process."
+		exit 0
+	fi
 fi
 
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
@@ -112,6 +143,6 @@ then
 		echo "'$HOME/notify_users_$DATE.lst' not created, nothing to do."
 	fi
 else
-	echo "no cancelled orders have holds."
+	echo "no non-visible titles have holds."
 fi
 # EOF

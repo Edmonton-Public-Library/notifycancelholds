@@ -94,12 +94,12 @@ else
 	# missing items since they could be found in short order and by then we may have cancelled
 	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
 	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
-	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | pipe.pl -m"c3:$DATE|@" > $HOME/cat_keys_$DATE.tmp$$
+	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|@" > $HOME/cat_keys_$DATE.tmp$$
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
 		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log
 		# Holdbot requires just cat keys on input so trim off the rest of the line.
-		cat $HOME/cat_keys_$DATE.tmp$$ | pipe.pl -o"c0" >$HOME/cat_keys_$DATE.lst
+		cat $HOME/cat_keys_$DATE.tmp$$ | $BIN_CUSTOM/pipe.pl -o"c0" >$HOME/cat_keys_$DATE.lst
 		if [ -s "$HOME/cat_keys_$DATE.lst" ]
 		then
 			rm $HOME/cat_keys_$DATE.tmp$$
@@ -130,8 +130,8 @@ then
 			# when it encounters EOF).
 			echo "reading in the undeliverable customers file..."
 			while IFS='' read -r line || [[ -n $line ]]; do
-				message=`echo "$line" | pipe.pl -o'c1' -m'c1:Cancelled hold on @@@@@@@@@@@@@@@... -'`$CANCEL_DATE
-				customer=`echo "$line" | pipe.pl -o'c0'`
+				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Cancelled hold on @@@@@@@@@@@@@@@... -'`$CANCEL_DATE
+				customer=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
 				echo "$customer" | $BIN_CUSTOM/addnote.pl -U -w"$HOME" -m"$message"
 			done < "$HOME/undeliverable_$DATE.lst"

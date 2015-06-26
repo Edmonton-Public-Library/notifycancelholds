@@ -97,7 +97,7 @@ else
 	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | pipe.pl -m"c3:$DATE|@" > $HOME/cat_keys_$DATE.tmp$$
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
-		cat $HOME/cat_keys_$DATE.tmp$$ >>cancelled_holds_data.log
+		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log
 		# Holdbot requires just cat keys on input so trim off the rest of the line.
 		cat $HOME/cat_keys_$DATE.tmp$$ | pipe.pl -o"c0" >$HOME/cat_keys_$DATE.lst
 		if [ -s "$HOME/cat_keys_$DATE.lst" ]

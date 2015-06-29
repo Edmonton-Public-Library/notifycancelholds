@@ -26,6 +26,8 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_01 - Updated to use new mask of pipe.pl. 
+#          0.5 - Experimental use of search URL in holdbot.pl -s. 
 #          0.4 - Widen the title string for better read-ability. 
 #          0.3 - API selection re-work for MISSING and LOST-ASSUM. 
 #          0.2 - Take a catalogue key as an argument. 
@@ -44,7 +46,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION=0.3
+VERSION=0.5_01
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%Y.%m.%d`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -81,21 +83,13 @@ then
 	echo "request to cancel holds on '$1'..."
 	echo $1 > $HOME/cat_keys_$DATE.lst
 else
-	# Let's just make sure the person running this has read the warning above.
-	echo -n "Are you sure you want to continue cancelling holds on item with no visible copies? y[n]: "
-	read imsure
-	if [ "$imsure" != "y" ]
-	then
-		echo "... it's ok to be cautious, exiting."
-		exit 1
-	fi
 	echo "Starting data collection..."
 	################### Cancel all titles with zero visible items ######################
 	# API for selecting items with 0 visible copies with the caveat that we don't want
 	# missing items since they could be found in short order and by then we may have cancelled
 	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
 	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
-	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|@" > $HOME/cat_keys_$DATE.tmp$$
+	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
 		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log
@@ -113,10 +107,18 @@ else
 		exit 0
 	fi
 fi
-
+# The script user can bail here if they just want to review the catalog keys.
+echo -n "I have collected the catalogue keys. Continue cancelling holds on item with no visible copies? y[n]: "
+read imsure
+if [ "$imsure" != "y" ]
+then
+	echo "... it's ok to be cautious, exiting."
+	exit 1
+fi
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
 	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/notify_users_$DATE.lst 
+	# cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cUs >$HOME/notify_users_$DATE.lst 
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then
 		$BIN_CUSTOM/mailerbot.pl -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.txt" >$HOME/undeliverable_$DATE.lst
@@ -131,7 +133,7 @@ then
 			# when it encounters EOF).
 			echo "reading in the undeliverable customers file..."
 			while IFS='' read -r line || [[ -n $line ]]; do
-				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Cancelled hold on @@@@@@@@@@@@@@@@@@@@... -'`$CANCEL_DATE
+				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Cancelled hold on ####################... _'`$CANCEL_DATE
 				customer=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
 				echo "$customer" | $BIN_CUSTOM/addnote.pl -U -w"$HOME" -m"$message"

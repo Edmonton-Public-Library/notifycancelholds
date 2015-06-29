@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.4 - Widen the title string for better read-ability. 
 #          0.3 - API selection re-work for MISSING and LOST-ASSUM. 
 #          0.2 - Take a catalogue key as an argument. 
 #          0.1 - Basic infrastructure. 
@@ -130,7 +131,7 @@ then
 			# when it encounters EOF).
 			echo "reading in the undeliverable customers file..."
 			while IFS='' read -r line || [[ -n $line ]]; do
-				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Cancelled hold on @@@@@@@@@@@@@@@... -'`$CANCEL_DATE
+				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Cancelled hold on @@@@@@@@@@@@@@@@@@@@... -'`$CANCEL_DATE
 				customer=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
 				echo "$customer" | $BIN_CUSTOM/addnote.pl -U -w"$HOME" -m"$message"

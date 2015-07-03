@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_02 - Added count to confirm message. 
 #          0.5_01 - Updated to use new mask of pipe.pl. 
 #          0.5 - Experimental use of search URL in holdbot.pl -s. 
 #          0.4 - Widen the title string for better read-ability. 
@@ -78,6 +79,7 @@ then
 	exit 1;
 fi
 cd $HOME
+COUNT=0
 if [ $# == 1 ]
 then
 	echo "request to cancel holds on '$1'..."
@@ -97,6 +99,7 @@ else
 		cat $HOME/cat_keys_$DATE.tmp$$ | $BIN_CUSTOM/pipe.pl -o"c0" >$HOME/cat_keys_$DATE.lst
 		if [ -s "$HOME/cat_keys_$DATE.lst" ]
 		then
+			COUNT=`cat $HOME/cat_keys_$DATE.tmp$$ | wc -l`
 			rm $HOME/cat_keys_$DATE.tmp$$
 		else
 			echo "*** error $HOME/cat_keys_$DATE.lst not created."
@@ -108,7 +111,7 @@ else
 	fi
 fi
 # The script user can bail here if they just want to review the catalog keys.
-echo -n "I have collected the catalogue keys. Continue cancelling holds on item with no visible copies? y[n]: "
+echo -n "I have collected $COUNT catalogue keys. Continue cancelling holds on item with no visible copies? y[n]: "
 read imsure
 if [ "$imsure" != "y" ]
 then
@@ -133,7 +136,7 @@ then
 			# when it encounters EOF).
 			echo "reading in the undeliverable customers file..."
 			while IFS='' read -r line || [[ -n $line ]]; do
-				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Cancelled hold on ####################... _'`$CANCEL_DATE
+				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Hold cancelled [#######################_...]'`$CANCEL_DATE
 				customer=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
 				echo "$customer" | $BIN_CUSTOM/addnote.pl -U -w"$HOME" -m"$message"

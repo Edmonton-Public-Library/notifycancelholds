@@ -26,8 +26,9 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_04 - Changes to non-emailed account message.
 #          0.5_03 - Changes recommended by staff 
-#                   July 22, 2015: hold Canceled, no copies available – title 07/22/2015
+#                   July 22, 2015: hold Cancelled, no copies available – title 07/22/2015
 #          0.5_02 - Added count to confirm message. 
 #          0.5_01 - Updated to use new mask of pipe.pl. 
 #          0.5 - Experimental use of search URL in holdbot.pl -s. 
@@ -138,7 +139,7 @@ then
 			# when it encounters EOF).
 			echo "reading in the undeliverable customers file..."
 			while IFS='' read -r line || [[ -n $line ]]; do
-				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Hold canceled\, no copies available - #######################_... '`$CANCEL_DATE
+				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Hold cancelled\, no copies available -CMA- #######################_... '`$CANCEL_DATE
 				customer=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
 				echo "$customer" | $BIN_CUSTOM/addnote.pl -U -w"$HOME" -m"$message"

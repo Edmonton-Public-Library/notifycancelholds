@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_05 - Optimized selection criteria at selcatalog stage.
 #          0.5_04 - Changes to non-emailed account message.
 #          0.5_03 - Changes recommended by staff 
 #                   July 22, 2015: hold Cancelled, no copies available – title 07/22/2015
@@ -50,7 +51,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_03'
+VERSION='0.5_05'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -94,7 +95,8 @@ else
 	# missing items since they could be found in short order and by then we may have cancelled
 	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
 	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
-	selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	# selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	selcatalog -z"=0" -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
 		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log

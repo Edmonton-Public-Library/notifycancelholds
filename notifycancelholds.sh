@@ -96,7 +96,9 @@ else
 	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
 	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
 	# selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
-	selcatalog -z"=0" -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	# selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -t"T" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	selcatalog -h">0" -z"=0" -oCh | selhold -iC -j"ACTIVE" -oIUp | selitem -iI -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oCSB | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	# 
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
 		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log

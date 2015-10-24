@@ -135,7 +135,17 @@ fi
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
 	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/no_link_notify_users_$DATE.lst 
+	# Create title links for convient searching.
 	cat $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst 
+	if [ -s "$HOME/notify_users_$DATE.lst" ]
+	then
+		rm $HOME/no_link_notify_users_$DATE.lst
+		# Will continue with links
+	else
+		mv $HOME/no_link_notify_users_$DATE.lst $HOME/notify_users_$DATE.lst
+		# Will continue with no links, but the information will still be in the message.
+		echo "There may have been a problem when links for titles were created. Messages will not contain searchable links."
+	fi
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then
 		$BIN_CUSTOM/mailerbot.pl -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst

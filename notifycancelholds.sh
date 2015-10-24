@@ -26,6 +26,9 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_08 - Add dynamic link handling through opacsearchlink.pl.
+#          0.5_07 - Send message as HTML.
+#          0.5_06 - Broadened  selection to just not select MISSING, LOST-ASSUM, and LOST items.
 #          0.5_05 - Optimized selection criteria at selcatalog stage.
 #          0.5_04 - Changes to non-emailed account message.
 #          0.5_03 - Changes recommended by staff 
@@ -42,6 +45,7 @@
 #               cancelholds.pl,
 #               pipe.pl,
 #               mailerbot.pl
+#               opacsearchlink.pl
 #
 ####################################################
 
@@ -51,14 +55,14 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_05'
+VERSION='0.5_06'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
 # cancelling the holds. The reason is; what if someone returns the item, but the holds
 # have been cancelled? Turns out the lending period (21 days) + days as LOST-ASSUM = 51
 # call it 60. After that it is extremely unlikely that the item will be recovered.
-LOST_ASSUM_CHARGE_DATE_THRESHOLD=`transdate -d-60` # 60 days ago.
+# LOST_ASSUM_CHARGE_DATE_THRESHOLD=`transdate -d-60` # 60 days ago.
 HOME=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
 BIN_CUSTOM=/s/sirsi/Unicorn/Bincustom
 # Find and test for all our dependencies.
@@ -82,6 +86,11 @@ then
 	echo "** error: key component '$BIN_CUSTOM/pipe.pl' missing!"
 	exit 1;
 fi
+if [ ! -e "$BIN_CUSTOM/opacsearchlink.pl" ]
+then
+	echo "** error: key component '$BIN_CUSTOM/opacsearchlink.pl' missing!"
+	exit 1;
+fi
 cd $HOME
 COUNT=0
 if [ $# == 1 ]
@@ -95,9 +104,7 @@ else
 	# missing items since they could be found in short order and by then we may have cancelled
 	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
 	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
-	# selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -a"N" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
-	# selitem -m"~MISSING" -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oC 2>/dev/null | sort -u | selcatalog -z"=0" -iC -h">0" 2>/dev/null | selhold -iC -j"ACTIVE" -t"T" -oIUp 2>/dev/null | selitem -iI -oCSB 2>/dev/null | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
-	selcatalog -h">0" -z"=0" -oCh | selhold -iC -j"ACTIVE" -oIUp | selitem -iI -n"<$LOST_ASSUM_CHARGE_DATE_THRESHOLD" -oCSB | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	selcatalog -h">0" -z"=0" -oCh | selhold -iC -j"ACTIVE" -oIUp | selitem -iI -m'~LOST,MISSING,LOST-ASSUM' -oCSB | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
 	# 
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
@@ -127,11 +134,11 @@ then
 fi
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
-	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/notify_users_$DATE.lst 
-	# cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cUs >$HOME/notify_users_$DATE.lst 
+	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/no_link_notify_users_$DATE.lst 
+	cat $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst 
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then
-		$BIN_CUSTOM/mailerbot.pl -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.txt" >$HOME/undeliverable_$DATE.lst
+		$BIN_CUSTOM/mailerbot.pl -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst
 		# Now use the undeliverable list and add a note on the customers account.
 		# It will be adequate to use the first 15 characters of the title and a short message to the account.
 		if [ -s "$HOME/undeliverable_$DATE.lst" ]

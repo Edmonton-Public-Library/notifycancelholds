@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_09 - Fix bug in output of opacsearchlink.pl and put unlinked titles on customer accounts.
 #          0.5_08 - Add dynamic link handling through opacsearchlink.pl.
 #          0.5_07 - Send message as HTML.
 #          0.5_06 - Broadened  selection to just not select MISSING, LOST-ASSUM, and LOST items.
@@ -55,7 +56,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_06'
+VERSION='0.5_09'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -135,24 +136,22 @@ fi
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
 	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/no_link_notify_users_$DATE.lst 
+	# Add me to the list to receive an email each time script is run.
+	head -1  $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/pipe.pl -m'c0:#####_019003992' >>$HOME/no_link_notify_users_$DATE.lst
 	# Create title links for convient searching.
 	cat $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst 
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then
-		rm $HOME/no_link_notify_users_$DATE.lst
-		# Will continue with links
-	else
-		mv $HOME/no_link_notify_users_$DATE.lst $HOME/notify_users_$DATE.lst
-		# Will continue with no links, but the information will still be in the message.
-		echo "There may have been a problem when links for titles were created. Messages will not contain searchable links."
-	fi
-	if [ -s "$HOME/notify_users_$DATE.lst" ]
-	then
-		$BIN_CUSTOM/mailerbot.pl -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst
+		$BIN_CUSTOM/mailerbot.pl -h -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst
 		# Now use the undeliverable list and add a note on the customers account.
 		# It will be adequate to use the first 15 characters of the title and a short message to the account.
 		if [ -s "$HOME/undeliverable_$DATE.lst" ]
 		then
+			# Undeliverable customers need to have a different un-linked message on their account. 
+			# Find the list of undeliverable and diff with $HOME/no_link_notify_users_$DATE.lst
+			# diff.pl only outputs one match per comparison, but that's all that will fit in a comment on a customer account anyway.
+			# Show us the users from undeliverable and no_link_notify, with the results pulled from the no_link_notify.
+			echo "$HOME/no_link_notify_users_$DATE.lst and $HOME/undeliverable_$DATE.lst" | diff.pl -ec0 -fc0 >$HOME/no_link_add_note_$DATE.lst
 			# IFS='' (or IFS=) prevents leading/trailing whitespace from being trimmed.
 			# -r prevents backslash escapes from being interpreted.
 			# || [[ -n $line ]] prevents the last line from being ignored if it 
@@ -163,8 +162,8 @@ then
 				message=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c1' -m'c1:Hold cancelled\, no copies available -CMA- #######################_... '`$CANCEL_DATE
 				customer=`echo "$line" | $BIN_CUSTOM/pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
-				echo "$customer" | $BIN_CUSTOM/addnote.pl -U -w"$HOME" -m"$message"
-			done < "$HOME/undeliverable_$DATE.lst"
+				echo "$customer" | $BIN_CUSTOM/addnote.pl -q -m"$message"
+			done < "$HOME/no_link_add_note_$DATE.lst"
 			echo "finished adding notes to customer accounts"
 		else
 			echo "all customers could be emailed, no need to add a note on their accounts."

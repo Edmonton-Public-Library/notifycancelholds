@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_10 - Added -i to run interactively. Default just run.
 #          0.5_09 - Fix bug in output of opacsearchlink.pl and put unlinked titles on customer accounts.
 #          0.5_08 - Add dynamic link handling through opacsearchlink.pl.
 #          0.5_07 - Send message as HTML.
@@ -56,7 +57,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_09'
+VERSION='0.5_10'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 

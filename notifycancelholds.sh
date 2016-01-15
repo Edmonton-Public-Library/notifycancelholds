@@ -127,12 +127,20 @@ else
 fi
 # The script user can bail here if they just want to review the catalog keys.
 echo -n "I have collected $COUNT catalogue keys. Continue cancelling holds on item with no visible copies? y[n]: "
-read imsure
-if [ "$imsure" != "y" ]
+if [ "$1" ]
 then
-	echo "... it's ok to be cautious, exiting."
-	exit 1
+	if [ "$1" == "-i" ]
+	then
+		read imsure
+		if [ "$imsure" != "y" ]
+		then
+			echo "... it's ok to be cautious, exiting."
+			exit 1
+		fi
+	fi
 fi
+
+
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
 	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/no_link_notify_users_$DATE.lst 

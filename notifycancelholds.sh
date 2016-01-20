@@ -97,10 +97,8 @@ cd $HOME
 COUNT=0
 if [ $# == 1 ]
 then
-	if [ "$1" == "-i" ]
+	if [ "$1" != "-i" ]
 	then
-		print "interactive mode set.\n"
-	else
 		echo "request to cancel holds on '$1'..."
 		echo $1 > $HOME/cat_keys_$DATE.lst
 	fi

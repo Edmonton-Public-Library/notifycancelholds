@@ -26,6 +26,8 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_12 - Revisit and refactor.
+#          0.5_11 - cancelholds.pl not a dependancy for this script. Removing.
 #          0.5_10 - Added -i to run interactively. Default just run.
 #          0.5_09 - Fix bug in output of opacsearchlink.pl and put unlinked titles on customer accounts.
 #          0.5_08 - Add dynamic link handling through opacsearchlink.pl.
@@ -44,7 +46,6 @@
 #          0.1 - Basic infrastructure. 
 #          0.0 - Dev.
 # Dependencies: holdbot.pl, 
-#               cancelholds.pl,
 #               pipe.pl,
 #               mailerbot.pl
 #               opacsearchlink.pl
@@ -57,7 +58,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_10'
+VERSION='0.5_12'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -67,12 +68,8 @@ CANCEL_DATE=`date +%m/%d/%Y`
 # LOST_ASSUM_CHARGE_DATE_THRESHOLD=`transdate -d-60` # 60 days ago.
 HOME=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
 BIN_CUSTOM=/s/sirsi/Unicorn/Bincustom
+echo " -- starting $0 version $VERSION --"
 # Find and test for all our dependencies.
-if [ ! -e "$BIN_CUSTOM/cancelholds.pl" ]
-then
-	echo "** error: key component '$BIN_CUSTOM/cancelholds.pl' missing!"
-	exit 1;
-fi
 if [ ! -e "$BIN_CUSTOM/holdbot.pl" ]
 then
 	echo "** error: key component '$BIN_CUSTOM/holdbot.pl' missing!"
@@ -113,9 +110,16 @@ else
 	# 
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
+		# Looks like:
+		# 1014560|23406|20141211|20150626|1014560-24001
+		# 1014560|30227|20150110|20150626|1014560-24001
+		# 1014560|1027279|20150130|20150626|1014560-24001
+		# 1014560|1154009|20150318|20150626|1014560-24001
+		# 1014560|323751|20150318|20150626|1014560-24001
+		# 1014560|749493|20150322|20150626|1014560-24001
 		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log
-		# Holdbot requires just cat keys on input so trim off the rest of the line.
-		cat $HOME/cat_keys_$DATE.tmp$$ | $BIN_CUSTOM/pipe.pl -o"c0" >$HOME/cat_keys_$DATE.lst
+		# Holdbot requires just cat keys on input so trim off the rest of the line and dedup so we don't rerun on same title, sort numerically. This will fail if you accidentally don't have a cat key in the first columns.
+		cat $HOME/cat_keys_$DATE.tmp$$ | $BIN_CUSTOM/pipe.pl -oc0 -dc0 -sc0 -U >$HOME/cat_keys_$DATE.lst
 		if [ -s "$HOME/cat_keys_$DATE.lst" ]
 		then
 			COUNT=`cat $HOME/cat_keys_$DATE.tmp$$ | wc -l`
@@ -147,11 +151,12 @@ fi
 
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
-	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -cU >$HOME/no_link_notify_users_$DATE.lst 
-	# Add me to the list to receive an email each time script is run.
+	# Cancel holds for these items on these titles.
+	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -ctU >$HOME/no_link_notify_users_$DATE.lst  
+	# Add me to the list to receive an email each time script is runs.
 	head -1  $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/pipe.pl -m'c0:#####_019003992' >>$HOME/no_link_notify_users_$DATE.lst
 	# Create title links for convient searching.
-	cat $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst 
+	cat $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then
 		$BIN_CUSTOM/mailerbot.pl -h -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst

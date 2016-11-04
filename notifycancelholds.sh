@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.5_13 - Selection to not include ILL-BOOK.
 #          0.5_12 - Revisit and refactor.
 #          0.5_11 - cancelholds.pl not a dependancy for this script. Removing.
 #          0.5_10 - Added -i to run interactively. Default just run.
@@ -58,7 +59,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_12'
+VERSION='0.5_13'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -105,18 +106,59 @@ else
 	# API for selecting items with 0 visible copies with the caveat that we don't want
 	# missing items since they could be found in short order and by then we may have cancelled
 	# many holds creating frustration and confusion for customers. We don't want LOST-ASSUM
-	# that are younger than 60 days for the same reason. They eventually get checked out to discard.
-	selcatalog -h">0" -z"=0" -oCh | selhold -iC -j"ACTIVE" -oIUp | selitem -iI -m'~LOST,MISSING,LOST-ASSUM' -oCSB | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
-	# 
+	# that are younger than 60 days for the same reason, they get converted to LOST, then discard 
+	# in due time (30 days).
+	# API: sel cat records with holds>0 but 0 visible call nums. Select the holds make sure they're active, then get those items 
+	# and make sure those items aren't marked LOST MISSING LOST-ASSUM in case they show up, and make sure they aren't ILL-BOOKs;
+	# we don't want to cancel ILL holds; they fit this discription.
+	
+	# Initially we look for all the cat keys of titles with no visible copies and holds, output the item keys.
+	selcatalog -h">0" -z"=0" -oC | selhold -iC -j"ACTIVE" -oI | selitem -iI -oCmt > all.items.lst.$DATE.tmp$$
+	# 1839799|CHECKEDOUT|ILL-BOOK|
+	# 1839976|CANC_ORDER|BOOK|
+	# 1840671|CHECKEDOUT|ILL-BOOK|
+	# 1842005|CANC_ORDER|CD|
+	# 1842005|CANC_ORDER|CD|
+	# 1842005|CANC_ORDER|CD|
+	# 1842005|CANC_ORDER|CD|
+	# 1842005|CANC_ORDER|CD|
+	# 1842006|CANC_ORDER|CD|
+	# 1842940|INTRANSIT|ILL-BOOK|
+	# 1845355|CANC_ORDER|CD|
+	# 1846165|CHECKEDOUT|ILL-BOOK|
+	# 1848157|MISSING|MUSICSCORE|
+	
+	# Next we prune the list of items removing the LOST, MISSING, LOST-ASSUM, and LOST-CLAIM and type of ILL* and dedup on the cat key.
+	# Example: if a title had no visible items and holds but the items were LOST-ASSUM, that title would be removed from this process
+	# since there is a small chance that a customer could find and return the item. We don't want to pre-cancel holds if we don't have
+	# to and once they are converted to DISCARD, we have to, and can do so safely.
+	cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c1:LOST|MISSING,c2:ILL-BOOK' -dc0 -oc0 -P > catkeys.to.cancel.lst.$DATE.tmp$$
+	# 1002661|
+	# 1014715|
+	# 1021769|
+	# 1022058|
+	# 1023605|
+	# 103625|
+	# 1060476|
+	# 1067359|
+	# 1073072|
+	# 1076498|
+	
+	# With this refined list collect the user data.
+	cat catkeys.to.cancel.lst.$DATE.tmp$$ | selhold -iC -j"ACTIVE" -oIUp | selitem -iI -oCSB | $BIN_CUSTOM/pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+	# 1838308|932430|20161005|20161104|1838308-1001
+	# 1838308|861341|20161006|20161104|1838308-1001
+	# 1839976|336759|20161002|20161104|1839976-1001
+	# 1842005|487441|20161006|20161104|1842005-1001
+	# 1842005|934799|20161011|20161104|1842005-1001
+	# 1842005|931068|20161012|20161104|1842005-1001
+	# 1842005|291281|20161015|20161104|1842005-1001
+	# 1842005|37568|20161019|20161104|1842005-1001
+	# 1842006|37568|20161019|20161104|1842006-1001
+	# 1845355|320320|20161019|20161104|1845355-1001
 	if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 	then
-		# Looks like:
-		# 1014560|23406|20141211|20150626|1014560-24001
-		# 1014560|30227|20150110|20150626|1014560-24001
-		# 1014560|1027279|20150130|20150626|1014560-24001
-		# 1014560|1154009|20150318|20150626|1014560-24001
-		# 1014560|323751|20150318|20150626|1014560-24001
-		# 1014560|749493|20150322|20150626|1014560-24001
+		# Make a log of the holds we are going to cancel.
 		cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log
 		# Holdbot requires just cat keys on input so trim off the rest of the line and dedup so we don't rerun on same title, sort numerically. This will fail if you accidentally don't have a cat key in the first columns.
 		cat $HOME/cat_keys_$DATE.tmp$$ | $BIN_CUSTOM/pipe.pl -oc0 -dc0 -sc0 -U >$HOME/cat_keys_$DATE.lst
@@ -152,11 +194,56 @@ fi
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
 	# Cancel holds for these items on these titles.
-	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -ctU >$HOME/no_link_notify_users_$DATE.lst  
+	cat $HOME/cat_keys_$DATE.lst | $BIN_CUSTOM/holdbot.pl -ctU >$HOME/no_link_notify_users_$DATE.lst
+	# 21221018015922|It's alive [sound recording] / Ramones|
+	# 21221024937960|Japanese ink painting : the art of sumí-e / Naomi Okamoto|
+	# 21221021982829|To the top of Everest / Laurie Skreslet with Elizabeth MacLeod|
+	# 21221015727818|Best of [sound recording] / Stampeders|
+	# 21221023784330|Best of [sound recording] / Stampeders|
+	# 21221021832057|Best of [sound recording] / Stampeders|
+	# 21221003324842|Best of [sound recording] / Stampeders|
+	# 21221018796570|Best of [sound recording] / Stampeders|
+	# 21221022600958|Best of [sound recording] / Stampeders|
+	# 21221020262306|Best of [sound recording] / Stampeders|
+	# 21221024926807|Best of [sound recording] / Stampeders|
+	# 21221022062779|Best of [sound recording] / Stampeders|
+	# 21221024060748|The mole sisters and the blue egg / written and illustrated by Roslyn Schwartz|
+	# 21221022448788|A caress of twilight / Laurell K. Hamilton|
+	
 	# Add me to the list to receive an email each time script is runs.
 	head -1  $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/pipe.pl -m'c0:#####_019003992' >>$HOME/no_link_notify_users_$DATE.lst
+	# 21221018015922|It's alive [sound recording] / Ramones|
+	# 21221024937960|Japanese ink painting : the art of sum¦\055-e / Naomi Okamoto|
+	# 21221021982829|To the top of Everest / Laurie Skreslet with Elizabeth MacLeod|
+	# 21221015727818|Best of [sound recording] / Stampeders|
+	# 21221023784330|Best of [sound recording] / Stampeders|
+	# 21221021832057|Best of [sound recording] / Stampeders|
+	# 21221003324842|Best of [sound recording] / Stampeders|
+	# 21221018796570|Best of [sound recording] / Stampeders|
+	# 21221022600958|Best of [sound recording] / Stampeders|
+	# 21221020262306|Best of [sound recording] / Stampeders|
+	# 21221024926807|Best of [sound recording] / Stampeders|
+	# 21221022062779|Best of [sound recording] / Stampeders|
+	# 21221024060748|The mole sisters and the blue egg / written and illustrated by Roslyn Schwartz|
+	# 21221022448788|A caress of twilight / Laurell K. Hamilton|
+	
 	# Create title links for convient searching.
 	cat $HOME/no_link_notify_users_$DATE.lst | $BIN_CUSTOM/opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst
+	# 21221018015922|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=It%27s%20alive%20%5Bsound%20recording%5D">It's alive [sound recording] / Ramones</a><br/>||
+	# 21221024937960|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Japanese%20ink%20painting%20%3A%20the%20art%20of%20sum¦\055%2De">Japanese ink painting : the art of sum¦\055-e / Naomi Okamoto</a><br/>||
+	# 21221021982829|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=To%20the%20top%20of%20Everest">To the top of Everest / Laurie Skreslet with Elizabeth MacLeod</a><br/>||
+	# 21221015727818|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221023784330|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221021832057|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221003324842|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221018796570|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221022600958|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221020262306|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221024926807|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221022062779|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
+	# 21221024060748|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=The%20mole%20sisters%20and%20the%20blue%20egg">The mole sisters and the blue egg / written and illustrated by Roslyn Schwartz</a><br/>||
+	# 21221022448788|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=A%20caress%20of%20twilight">A caress of twilight / Laurell K. Hamilton</a><br/>||
+	
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then
 		$BIN_CUSTOM/mailerbot.pl -h -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst

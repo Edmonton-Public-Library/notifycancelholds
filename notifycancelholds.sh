@@ -60,7 +60,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.5_13'
+VERSION='0.6_00'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -69,24 +69,25 @@ CANCEL_DATE=`date +%m/%d/%Y`
 # call it 60. After that it is extremely unlikely that the item will be recovered.
 # LOST_ASSUM_CHARGE_DATE_THRESHOLD=`transdate -d-60` # 60 days ago.
 HOME=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
+BIN_CUSTOM=/s/sirsi/Unicorn/Bincustom
 echo " -- starting $0 version $VERSION --"
 # Find and test for all our dependencies.
-if [ ! -e "holdbot.pl" ]
+if [ ! -e "$BIN_CUSTOM/holdbot.pl" ]
 then
 	echo "** error: key component 'holdbot.pl' missing!"
 	exit 1;
 fi
-if [ ! -e "mailerbot.pl" ]
+if [ ! -e "$BIN_CUSTOM/mailerbot.pl" ]
 then
 	echo "** error: key component 'mailerbot.pl' missing!"
 	exit 1;
 fi
-if [ ! -e "pipe.pl" ]
+if [ ! -e "$BIN_CUSTOM/pipe.pl" ]
 then
 	echo "** error: key component 'pipe.pl' missing!"
 	exit 1;
 fi
-if [ ! -e "opacsearchlink.pl" ]
+if [ ! -e "$BIN_CUSTOM/opacsearchlink.pl" ]
 then
 	echo "** error: key component 'opacsearchlink.pl' missing!"
 	exit 1;
@@ -122,7 +123,8 @@ selcatalog -z0 -h">0" 2>/dev/null | selitem -iC -oImt | pipe.pl -dc0,c1,c2 > all
 # Example: if a title had no visible items and holds but the items were LOST-ASSUM, that title would be removed from this process
 # since there is a small chance that a customer could find and return the item. We don't want to pre-cancel holds if we don't have
 # to and once they are converted to DISCARD, we have to, and can do so safely.
-cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c3:CLAIM|ASSUM|MISSING,c4:ILL-BOOK' | pipe.pl -dc0 -oc0 -P > all.catkeys.$DATE.tmp$$
+cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c3:CHECKEDOUT|MISSING|LOST' | pipe.pl -dc0 -oc0 -P > all.catkeys.$DATE.tmp$$
+cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c4:ILL' | pipe.pl -dc0 -oc0 -P >> all.catkeys.$DATE.tmp$$
 # 1002661|
 # 1014715|
 # 1021769|
@@ -135,7 +137,9 @@ cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c3:CLAIM|ASSUM|MISSING,c4:ILL-BOOK' |
 # 1076498|
 
 # Now make a list of all cat keys that definitely do have LOST, LOST-ASSUM, LOST-CLAIM, MISSING.
-cat all.items.lst.$DATE.tmp$$ | pipe.pl -g'c3:CLAIM|ASSUM|MISSING' | pipe.pl -g'c4:ILL-BOOK' | pipe.pl -dc0 -oc0 -P > all.catkeys.lost.missing.$DATE.tmp$$
+cat all.items.lst.$DATE.tmp$$ | pipe.pl -g'c3:CHECKEDOUT|MISSING|LOST' | pipe.pl -dc0 -oc0 -P > all.catkeys.lost.missing.$DATE.tmp$$
+# This grabs the ILL-BOOK item types. -g is a logical AND operation.
+cat all.items.lst.$DATE.tmp$$ | pipe.pl -g'c4:ILL' | pipe.pl -dc0 -oc0 -P >> all.catkeys.lost.missing.$DATE.tmp$$
 # Take the difference of the 2 files, that is report the cat keys from all catkeys 
 # that don't appear in catkeys of missing and lost items. 
 echo "all.catkeys.$DATE.tmp$$ not all.catkeys.lost.missing.$DATE.tmp$$" | diff.pl -ec0 -fc0 > catkeys.to.cancel.lst.$DATE.tmp$$
@@ -173,9 +177,8 @@ rm all.catkeys.lost.missing.$DATE.tmp$$
 if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
 then
 	# Make a log of the holds we are going to cancel.
-	echo "=== [$DATE] ===" >>$HOME/cancelled_holds_data.log
-	echo "[ catkey | UserKey | DatePlaced | DateCancelled | ItemID ] ===" >>$HOME/cancelled_holds_data.log
-	cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.log
+	echo "[ catkey | UserKey | DatePlaced | DateCancelled | ItemID ]" > $HOME/cancelled_holds_data.$DATE.log
+	cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.$DATE.log
 	# Holdbot requires just cat keys on input so trim off the rest of the line and dedup so we don't rerun on same title, sort numerically. This will fail if you accidentally don't have a cat key in the first columns.
 	cat $HOME/cat_keys_$DATE.tmp$$ | pipe.pl -oc0 -dc0 -sc0 -U >$HOME/cat_keys_$DATE.lst
 	if [ -s "$HOME/cat_keys_$DATE.lst" ]

@@ -106,8 +106,12 @@ echo "Starting data collection..."
 # we don't want to cancel ILL holds; they fit this discription.
 
 # Initially we look for all the cat keys of titles with no visible copies and holds, output the item keys.
-# selcatalog -h">0" | selcallnum -iC -z0 | selhold -iC -j"ACTIVE" -oI | selitem -iI -oImt > all.items.lst.$DATE.tmp$$
 selcatalog -z0 -h">0" 2>/dev/null | selitem -iC -oImt | pipe.pl -dc0,c1,c2 > all.items.lst.$DATE.tmp$$
+# An additional selection should be made for corner cases where the holds are on visible, but non-holdable items like REF-BOOK.
+# This can happen if staff place a hold for customers(?). Uncomment the line below to turn this feature on. It is tested.
+# This can be expanded to HITS2GO as well.
+####### **** BE VERY CAREFUL IF YOU DECIDE TO DO THIS, SOME TITLES HAVE A MIXTURE OF BOOK and REF-BOOK. The BOOK holds will be cancelled. ****#####
+### selitem -tREF-BOOK -oCmt | selhold -iC -tT -jACTIVE -oIS 2>/dev/null | pipe.pl -dc0,c1,c2 >> all.items.lst.$DATE.tmp$$
 # 1001225|13|2|DISCARD|JPBK|
 # 1001225|2|1|LOST-ASSUM|JPBK|
 # 1001225|24|2|DISCARD|JPBK|
@@ -118,11 +122,17 @@ selcatalog -z0 -h">0" 2>/dev/null | selitem -iC -oImt | pipe.pl -dc0,c1,c2 > all
 # 1001225|33|2|DISCARD|JPBK|
 # 1001225|43|1|DISCARD|JPBK|
 # 1001225|46|1|DISCARD|JPBK|
+### Additional REF-BOOK selections look like this.
+# 11246|75|1|DISCARD|REF-BOOK|
+# 1157980|2|7|CHECKEDOUT|REF-BOOK|
+# 117968|330|1|DISCARD|REF-BOOK|
+# 1233078|93|1|CHECKEDOUT|REF-BOOK|
+# 128866|22|2|CHECKEDOUT|REF-BOOK|
 
 # Next we prune the list of items removing the LOST, MISSING, LOST-ASSUM, and LOST-CLAIM and type of ILL* and dedup on the cat key.
 # Example: if a title had no visible items and holds but the items were LOST-ASSUM, that title would be removed from this process
 # since there is a small chance that a customer could find and return the item. We don't want to pre-cancel holds if we don't have
-# to and once they are converted to DISCARD, we have to, and can do so safely.
+# to and once they are converted to DISCARD, we have to, and can do so safely. Note that any LOST* is considered in the -G selection.
 cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c3:CHECKEDOUT|MISSING|LOST' | pipe.pl -dc0 -oc0 -P > all.catkeys.$DATE.tmp$$
 cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c4:ILL' | pipe.pl -dc0 -oc0 -P >> all.catkeys.$DATE.tmp$$
 # 1002661|
@@ -156,8 +166,9 @@ echo "all.catkeys.$DATE.tmp$$ not all.catkeys.lost.missing.$DATE.tmp$$" | diff.p
 
 
 
-# With this refined list collect the user data.
-cat catkeys.to.cancel.lst.$DATE.tmp$$ | selhold -iC -j"ACTIVE" -oIUp | selitem -iI -oCSB | pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+# With this refined list collect the user data. 
+# Added -tT on selhold to only select title holds. System cards place copy holds and we don't want to cancel them.
+cat catkeys.to.cancel.lst.$DATE.tmp$$ | selhold -iC -j"ACTIVE" -tT -oIUp | selitem -iI -oCSB | pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
 # 1838308|932430|20161005|20161104|1838308-1001
 # 1838308|861341|20161006|20161104|1838308-1001
 # 1839976|336759|20161002|20161104|1839976-1001

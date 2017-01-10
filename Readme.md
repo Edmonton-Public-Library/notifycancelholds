@@ -32,7 +32,9 @@ Repository Information:
 This product is under version control using Git.
 
 Dependencies:
-None
+[pipe.pl](https://github.com/anisbet/pipe)
+[diff.pl](https://github.com/anisbet/diff)
+[holdbot.pl](https://github.com/Edmonton-Public-Library/holdbot)
 
 Known Issues:
 None

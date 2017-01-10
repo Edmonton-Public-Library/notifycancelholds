@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2015
 # Rev: 
+#          0.6_01 - Removed LOST, LOST-ASSUM as exclusion criteria. Now just LOST-ASSUM only.
 #          0.6_00 - No longer accepts a single cat key as argument, removed BIN_CUSTOM variable, cleaned and tested API.
 #          0.5_13 - Selection to not include ILL-BOOK.
 #          0.5_12 - Revisit and refactor.
@@ -60,14 +61,14 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.6_00'
+VERSION='0.6_01'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
 # cancelling the holds. The reason is; what if someone returns the item, but the holds
 # have been cancelled? Turns out the lending period (21 days) + days as LOST-ASSUM = 51
 # call it 60. After that it is extremely unlikely that the item will be recovered.
-# LOST_ASSUM_CHARGE_DATE_THRESHOLD=`transdate -d-60` # 60 days ago.
+LAST_ACTIVE_DATE_THRESHOLD=`transdate -d-60`
 HOME=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
 BIN_CUSTOM=/s/sirsi/Unicorn/Bincustom
 echo " -- starting $0 version $VERSION --"
@@ -106,35 +107,32 @@ echo "Starting data collection..."
 # we don't want to cancel ILL holds; they fit this discription.
 
 # Initially we look for all the cat keys of titles with no visible copies and holds, output the item keys.
-selcatalog -z0 -h">0" 2>/dev/null | selitem -iC -oImt | pipe.pl -dc0,c1,c2 > all.items.lst.$DATE.tmp$$
+selcatalog -z0 -h">0" 2>/dev/null | selitem -iC -oImta | pipe.pl -dc0,c1,c2 > all.items.lst.$DATE.tmp$$
 # An additional selection should be made for corner cases where the holds are on visible, but non-holdable items like REF-BOOK.
 # This can happen if staff place a hold for customers(?). Uncomment the line below to turn this feature on. It is tested.
 # This can be expanded to HITS2GO as well.
 ####### **** BE VERY CAREFUL IF YOU DECIDE TO DO THIS, SOME TITLES HAVE A MIXTURE OF BOOK and REF-BOOK. The BOOK holds will be cancelled. ****#####
-### selitem -tREF-BOOK -oCmt | selhold -iC -tT -jACTIVE -oIS 2>/dev/null | pipe.pl -dc0,c1,c2 >> all.items.lst.$DATE.tmp$$
-# 1001225|13|2|DISCARD|JPBK|
-# 1001225|2|1|LOST-ASSUM|JPBK|
-# 1001225|24|2|DISCARD|JPBK|
-# 1001225|2|6|DISCARD|JPBK|
-# 1001225|26|2|DISCARD|JPBK|
-# 1001225|26|4|DISCARD|JPBK|
-# 1001225|2|7|DISCARD|JPBK|
-# 1001225|33|2|DISCARD|JPBK|
-# 1001225|43|1|DISCARD|JPBK|
-# 1001225|46|1|DISCARD|JPBK|
+### selitem -tREF-BOOK -oCmta | selhold -iC -tT -jACTIVE -oIS 2>/dev/null | pipe.pl -dc0,c1,c2 >> all.items.lst.$DATE.tmp$$
+# 1001225|13|2|DISCARD|JPBK|20160708|
+# 1001225|2|1|LOST-ASSUM|JPBK|20160708|
+# 1001225|24|2|DISCARD|JPBK|20160708|
+# 1001225|2|6|DISCARD|JPBK|20160708|
+# 1001225|26|2|DISCARD|JPBK|20160708|
+# 1001225|26|4|DISCARD|JPBK|20160708|
+# 1001225|2|7|DISCARD|JPBK|20160708|
+# 1001225|33|2|DISCARD|JPBK|20160708|
+# 1001225|43|1|DISCARD|JPBK|20160708|
+# 1001225|46|1|DISCARD|JPBK|20160708|
 ### Additional REF-BOOK selections look like this.
-# 11246|75|1|DISCARD|REF-BOOK|
-# 1157980|2|7|CHECKEDOUT|REF-BOOK|
-# 117968|330|1|DISCARD|REF-BOOK|
-# 1233078|93|1|CHECKEDOUT|REF-BOOK|
-# 128866|22|2|CHECKEDOUT|REF-BOOK|
+# 11246|75|1|DISCARD|REF-BOOK|20160708|
+# 1157980|2|7|CHECKEDOUT|REF-BOOK|20160708|
+# 117968|330|1|DISCARD|REF-BOOK|20160708|
+# 1233078|93|1|CHECKEDOUT|REF-BOOK|20160708|
+# 128866|22|2|CHECKEDOUT|REF-BOOK|20160708|
 
-# Next we prune the list of items removing the LOST, MISSING, LOST-ASSUM, and LOST-CLAIM and type of ILL* and dedup on the cat key.
-# Example: if a title had no visible items and holds but the items were LOST-ASSUM, that title would be removed from this process
-# since there is a small chance that a customer could find and return the item. We don't want to pre-cancel holds if we don't have
-# to and once they are converted to DISCARD, we have to, and can do so safely. Note that any LOST* is considered in the -G selection.
-cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c3:CHECKEDOUT|MISSING|LOST' | pipe.pl -dc0 -oc0 -P > all.catkeys.$DATE.tmp$$
-cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c4:ILL' | pipe.pl -dc0 -oc0 -P >> all.catkeys.$DATE.tmp$$
+# Next we dedup for all cat keys regardless. After this we will exclude cat keys that have 
+# items with locations that may be returned to circulation.
+cat all.items.lst.$DATE.tmp$$ | pipe.pl -dc0 -oc0 -P > all.catkeys.$DATE.tmp$$
 # 1002661|
 # 1014715|
 # 1021769|
@@ -146,10 +144,14 @@ cat all.items.lst.$DATE.tmp$$ | pipe.pl -G'c4:ILL' | pipe.pl -dc0 -oc0 -P >> all
 # 1073072|
 # 1076498|
 
-# Now make a list of all cat keys that definitely do have LOST, LOST-ASSUM, LOST-CLAIM, MISSING.
-cat all.items.lst.$DATE.tmp$$ | pipe.pl -g'c3:CHECKEDOUT|MISSING|LOST' | pipe.pl -dc0 -oc0 -P > all.catkeys.lost.missing.$DATE.tmp$$
+# Now make a list of all cat keys that have items that have items in locations that may be returned.
+# CHECKEDOUT - definitely coming back; low lost-ness.
+# MISSING - Sometimes good results on finding items especially after a move; mid lost-less-ness.
+# LOST-ASSUM - Customer billed for item, so sometimes they scurry, search and return; high lost-less-ness.
+cat all.items.lst.$DATE.tmp$$ | pipe.pl -g'c3:CHECKEDOUT|MISSING|LOST-ASSUM' | pipe.pl -C"c5:gt$LAST_ACTIVE_DATE_THRESHOLD" | pipe.pl -dc0 -oc0 -P > all.catkeys.lost.missing.$DATE.tmp$$
 # This grabs the ILL-BOOK item types. -g is a logical AND operation.
 cat all.items.lst.$DATE.tmp$$ | pipe.pl -g'c4:ILL' | pipe.pl -dc0 -oc0 -P >> all.catkeys.lost.missing.$DATE.tmp$$
+
 # Take the difference of the 2 files, that is report the cat keys from all catkeys 
 # that don't appear in catkeys of missing and lost items. 
 echo "all.catkeys.$DATE.tmp$$ not all.catkeys.lost.missing.$DATE.tmp$$" | diff.pl -ec0 -fc0 > catkeys.to.cancel.lst.$DATE.tmp$$

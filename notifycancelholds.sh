@@ -2,11 +2,9 @@
 ####################################################
 #
 # Bash shell script for project notifycancelholds.sh 
-# Purpose:
-# Method:
 #
 # Notifies users and cancels holds on titles with no viable copies.
-#    Copyright (C) 2015  Andrew Nisbet
+#    Copyright (C) 2016  Andrew Nisbet
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,8 +22,9 @@
 # MA 02110-1301, USA.
 #
 # Author:  Andrew Nisbet, Edmonton Public Library
-# Copyright (c) Mon Jun 22 15:51:12 MDT 2015
+# Copyright (c) Mon Jun 22 15:51:12 MDT 2016
 # Rev: 
+#          0.6_02 - Add test for addnote.pl.
 #          0.6_01 - Removed LOST, LOST-ASSUM as exclusion criteria. Now just LOST-ASSUM only.
 #          0.6_00 - No longer accepts a single cat key as argument, removed BIN_CUSTOM variable, cleaned and tested API.
 #          0.5_13 - Selection to not include ILL-BOOK.
@@ -61,7 +60,7 @@
 # *** Edit these to suit your environment *** #
 source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
 ###############################################
-VERSION='0.6_01'
+VERSION='0.6_02'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -91,6 +90,11 @@ fi
 if [ ! -e "$BIN_CUSTOM/opacsearchlink.pl" ]
 then
 	echo "** error: key component 'opacsearchlink.pl' missing!"
+	exit 1;
+fi
+if [ ! -e "$BIN_CUSTOM/addnote.pl" ]
+then
+	echo "** error: key component 'addnote.pl' missing!"
 	exit 1;
 fi
 cd $HOME
@@ -165,9 +169,6 @@ echo "all.catkeys.$DATE.tmp$$ not all.catkeys.lost.missing.$DATE.tmp$$" | diff.p
 # 1200862|
 # 1419303|
 # 1174381|
-
-
-
 # With this refined list collect the user data. 
 # Added -tT on selhold to only select title holds. System cards place copy holds and we don't want to cancel them.
 cat catkeys.to.cancel.lst.$DATE.tmp$$ | selhold -iC -j"ACTIVE" -tT -oIUp | selitem -iI -oCSB | pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
@@ -218,8 +219,6 @@ then
 	fi
 fi
 
-
-
 if [ -s "$HOME/cat_keys_$DATE.lst" ]
 then
 	# Cancel holds for these items on these titles.
@@ -251,13 +250,6 @@ then
 	# 21221023784330|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
 	# 21221021832057|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
 	# 21221003324842|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
-	# 21221018796570|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
-	# 21221022600958|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
-	# 21221020262306|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
-	# 21221024926807|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
-	# 21221022062779|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
-	# 21221024060748|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=The%20mole%20sisters%20and%20the%20blue%20egg">The mole sisters and the blue egg / written and illustrated by Roslyn Schwartz</a><br/>||
-	# 21221022448788|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=A%20caress%20of%20twilight">A caress of twilight / Laurell K. Hamilton</a><br/>||
 	
 	if [ -s "$HOME/notify_users_$DATE.lst" ]
 	then

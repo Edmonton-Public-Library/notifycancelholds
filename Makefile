@@ -23,6 +23,7 @@
 #
 # Written by Andrew Nisbet at Edmonton Public Library
 # Rev: 
+#      0.1 - Added html message to repo for one-stop-editing. 
 #      0.0 - Dev. 
 ####################################################
 # Change comment below for appropriate server.
@@ -32,11 +33,14 @@ USER=sirsi
 REMOTE=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds/
 LOCAL=~/projects/notifycancelholds/
 APP=notifycancelholds.sh
+NOTICE=cancel_holds_message.html
 ARGS=
 
 test:
 	scp ${LOCAL}${APP} ${USER}@${TEST_SERVER}:${REMOTE}
+	scp ${LOCAL}${NOTICE} ${USER}@${TEST_SERVER}:${REMOTE}
 	
 production: test
 	scp ${LOCAL}${APP} ${USER}@${PRODUCTION_SERVER}:${REMOTE}
+	scp ${LOCAL}${NOTICE} ${USER}@${PRODUCTION_SERVER}:${REMOTE}
 

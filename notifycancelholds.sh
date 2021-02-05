@@ -58,7 +58,7 @@
 # without assuming any environment settings and we need to use sirsi's.
 ###############################################
 # *** Edit these to suit your environment *** #
-source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
+. ~/.bashrc
 ###############################################
 VERSION='0.6_02'
 DATE=` date +%Y%m%d`
@@ -68,8 +68,8 @@ CANCEL_DATE=`date +%m/%d/%Y`
 # have been cancelled? Turns out the lending period (21 days) + days as LOST-ASSUM = 51
 # call it 60. After that it is extremely unlikely that the item will be recovered.
 LAST_ACTIVE_DATE_THRESHOLD=`transdate -d-60`
-HOME=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
-BIN_CUSTOM=/s/sirsi/Unicorn/Bincustom
+HOME=~/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
+BIN_CUSTOM=~/Unicorn/Bincustom
 echo " -- starting $0 version $VERSION --"
 # Find and test for all our dependencies.
 if [ ! -e "$BIN_CUSTOM/holdbot.pl" ]

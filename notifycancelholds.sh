@@ -60,7 +60,7 @@
 # *** Edit these to suit your environment *** #
 . ~/.bashrc
 ###############################################
-VERSION='0.6_02'
+VERSION='0.6_03'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -68,7 +68,7 @@ CANCEL_DATE=`date +%m/%d/%Y`
 # have been cancelled? Turns out the lending period (21 days) + days as LOST-ASSUM = 51
 # call it 60. After that it is extremely unlikely that the item will be recovered.
 LAST_ACTIVE_DATE_THRESHOLD=`transdate -d-60`
-HOME=~/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
+WORK_DIR=~/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
 BIN_CUSTOM=~/Unicorn/Bincustom
 echo " -- starting $0 version $VERSION --"
 # Find and test for all our dependencies.
@@ -97,7 +97,7 @@ then
 	echo "** error: key component 'addnote.pl' missing!"
 	exit 1;
 fi
-cd $HOME
+cd $WORK_DIR
 COUNT=0
 echo "Starting data collection..."
 ################### Cancel all titles with zero visible items ######################
@@ -171,7 +171,7 @@ echo "all.catkeys.$DATE.tmp$$ not all.catkeys.lost.missing.$DATE.tmp$$" | diff.p
 # 1174381|
 # With this refined list collect the user data. 
 # Added -tT on selhold to only select title holds. System cards place copy holds and we don't want to cancel them.
-cat catkeys.to.cancel.lst.$DATE.tmp$$ | selhold -iC -j"ACTIVE" -tT -oIUp | selitem -iI -oCSB | pipe.pl -m"c3:$DATE|#" > $HOME/cat_keys_$DATE.tmp$$
+cat catkeys.to.cancel.lst.$DATE.tmp$$ | selhold -iC -j"ACTIVE" -tT -oIUp | selitem -iI -oCSB | pipe.pl -m"c3:$DATE|#" > $WORK_DIR/cat_keys_$DATE.tmp$$
 # 1838308|932430|20161005|20161104|1838308-1001
 # 1838308|861341|20161006|20161104|1838308-1001
 # 1839976|336759|20161002|20161104|1839976-1001
@@ -188,19 +188,19 @@ rm catkeys.to.cancel.lst.$DATE.tmp$$
 rm all.items.lst.$DATE.tmp$$
 rm all.catkeys.$DATE.tmp$$
 rm all.catkeys.lost.missing.$DATE.tmp$$
-if [ -s "$HOME/cat_keys_$DATE.tmp$$" ]
+if [ -s "$WORK_DIR/cat_keys_$DATE.tmp$$" ]
 then
 	# Make a log of the holds we are going to cancel.
-	echo "[ catkey | UserKey | DatePlaced | DateCancelled | ItemID ]" > $HOME/cancelled_holds_data.$DATE.log
-	cat $HOME/cat_keys_$DATE.tmp$$ >>$HOME/cancelled_holds_data.$DATE.log
+	echo "[ catkey | UserKey | DatePlaced | DateCancelled | ItemID ]" > $WORK_DIR/cancelled_holds_data.$DATE.log
+	cat $WORK_DIR/cat_keys_$DATE.tmp$$ >>$WORK_DIR/cancelled_holds_data.$DATE.log
 	# Holdbot requires just cat keys on input so trim off the rest of the line and dedup so we don't rerun on same title, sort numerically. This will fail if you accidentally don't have a cat key in the first columns.
-	cat $HOME/cat_keys_$DATE.tmp$$ | pipe.pl -oc0 -dc0 -sc0 -U >$HOME/cat_keys_$DATE.lst
-	if [ -s "$HOME/cat_keys_$DATE.lst" ]
+	cat $WORK_DIR/cat_keys_$DATE.tmp$$ | pipe.pl -oc0 -dc0 -sc0 -U >$WORK_DIR/cat_keys_$DATE.lst
+	if [ -s "$WORK_DIR/cat_keys_$DATE.lst" ]
 	then
-		COUNT=`cat $HOME/cat_keys_$DATE.lst | wc -l`
-		rm $HOME/cat_keys_$DATE.tmp$$ # We have already added it to the log so removing ok.
+		COUNT=`cat $WORK_DIR/cat_keys_$DATE.lst | wc -l`
+		rm $WORK_DIR/cat_keys_$DATE.tmp$$ # We have already added it to the log so removing ok.
 	else
-		echo "*** error $HOME/cat_keys_$DATE.lst not created."
+		echo "*** error $WORK_DIR/cat_keys_$DATE.lst not created."
 		exit 1
 	fi
 else
@@ -219,10 +219,10 @@ then
 	fi
 fi
 
-if [ -s "$HOME/cat_keys_$DATE.lst" ]
+if [ -s "$WORK_DIR/cat_keys_$DATE.lst" ]
 then
 	# Cancel holds for these items on these titles.
-	cat $HOME/cat_keys_$DATE.lst | holdbot.pl -ctU >$HOME/no_link_notify_users_$DATE.lst
+	cat $WORK_DIR/cat_keys_$DATE.lst | holdbot.pl -ctU >$WORK_DIR/no_link_notify_users_$DATE.lst
 	# 21221018015922|It's alive [sound recording] / Ramones|
 	# 21221024937960|Japanese ink painting : the art of sumí-e / Naomi Okamoto|
 	# 21221021982829|To the top of Everest / Laurie Skreslet with Elizabeth MacLeod|
@@ -239,10 +239,10 @@ then
 	# 21221022448788|A caress of twilight / Laurell K. Hamilton|
 	
 	# Add me to the list to receive an email each time script is runs.
-	head -1  $HOME/no_link_notify_users_$DATE.lst | pipe.pl -m'c0:#####_019003992' >>$HOME/no_link_notify_users_$DATE.lst
+	head -1  $WORK_DIR/no_link_notify_users_$DATE.lst | pipe.pl -m'c0:#####_019003992' >>$WORK_DIR/no_link_notify_users_$DATE.lst
 	
 	# Create title links for convient searching from within the email we send.
-	cat $HOME/no_link_notify_users_$DATE.lst | opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$HOME/notify_users_$DATE.lst
+	cat $WORK_DIR/no_link_notify_users_$DATE.lst | opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$WORK_DIR/notify_users_$DATE.lst
 	# 21221018015922|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=It%27s%20alive%20%5Bsound%20recording%5D">It's alive [sound recording] / Ramones</a><br/>||
 	# 21221024937960|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Japanese%20ink%20painting%20%3A%20the%20art%20of%20sum¦\055%2De">Japanese ink painting : the art of sum¦\055-e / Naomi Okamoto</a><br/>||
 	# 21221021982829|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=To%20the%20top%20of%20Everest">To the top of Everest / Laurie Skreslet with Elizabeth MacLeod</a><br/>||
@@ -251,18 +251,18 @@ then
 	# 21221021832057|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
 	# 21221003324842|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
 	
-	if [ -s "$HOME/notify_users_$DATE.lst" ]
+	if [ -s "$WORK_DIR/notify_users_$DATE.lst" ]
 	then
-		mailerbot.pl -h -c"$HOME/notify_users_$DATE.lst" -n"$HOME/cancel_holds_message.html" >$HOME/undeliverable_$DATE.lst
+		mailerbot.pl -h -c"$WORK_DIR/notify_users_$DATE.lst" -n"$WORK_DIR/cancel_holds_message.html" >$WORK_DIR/undeliverable_$DATE.lst
 		# Now use the undeliverable list and add a note on the customers account.
 		# It will be adequate to use the first 15 characters of the title and a short message to the account.
-		if [ -s "$HOME/undeliverable_$DATE.lst" ]
+		if [ -s "$WORK_DIR/undeliverable_$DATE.lst" ]
 		then
 			# Undeliverable customers need to have a different un-linked message on their account. 
-			# Find the list of undeliverable and diff with $HOME/no_link_notify_users_$DATE.lst
+			# Find the list of undeliverable and diff with $WORK_DIR/no_link_notify_users_$DATE.lst
 			# diff.pl only outputs one match per comparison, but that's all that will fit in a comment on a customer account anyway.
 			# Show us the users from undeliverable and no_link_notify, with the results pulled from the no_link_notify.
-			echo "$HOME/no_link_notify_users_$DATE.lst and $HOME/undeliverable_$DATE.lst" | diff.pl -ec0 -fc0 >$HOME/no_link_add_note_$DATE.lst
+			echo "$WORK_DIR/no_link_notify_users_$DATE.lst and $WORK_DIR/undeliverable_$DATE.lst" | diff.pl -ec0 -fc0 >$WORK_DIR/no_link_add_note_$DATE.lst
 			# IFS='' (or IFS=) prevents leading/trailing whitespace from being trimmed.
 			# -r prevents backslash escapes from being interpreted.
 			# || [[ -n $line ]] prevents the last line from being ignored if it 
@@ -274,13 +274,13 @@ then
 				customer=`echo "$line" | pipe.pl -o'c0'`
 				echo "read '$message' for customer '$customer'"
 				echo "$customer" | addnote.pl -q -m"$message"
-			done < "$HOME/no_link_add_note_$DATE.lst"
+			done < "$WORK_DIR/no_link_add_note_$DATE.lst"
 			echo "finished adding notes to customer accounts"
 		else
 			echo "all customers could be emailed, no need to add a note on their accounts."
 		fi
 	else
-		echo "'$HOME/notify_users_$DATE.lst' not created, nothing to do."
+		echo "'$WORK_DIR/notify_users_$DATE.lst' not created, nothing to do."
 	fi
 else
 	echo "no non-visible titles have holds."

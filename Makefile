@@ -27,10 +27,11 @@
 #      0.0 - Dev. 
 ####################################################
 # Change comment below for appropriate server.
+# PRODUCTION_SERVER=edpl.sirsidynix.net
 PRODUCTION_SERVER=eplapp.library.ualberta.ca
 TEST_SERVER=edpl-t.library.ualberta.ca
 USER=sirsi
-REMOTE=/s/sirsi/Unicorn/EPLwork/cronjobscripts/Notifycancelholds/
+REMOTE=~/Unicorn/EPLwork/cronjobscripts/Notifycancelholds/
 LOCAL=~/projects/notifycancelholds/
 APP=notifycancelholds.sh
 NOTICE=cancel_holds_message.html

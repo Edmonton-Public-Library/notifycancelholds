@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2016
 # Rev: 
+#          1.00.00 - New release to use mailerbothtml.sh instead of mailerbot.pl.
 #          0.6_03 - Fix mis-use of $HOME.
 #          0.6_02 - Add test for addnote.pl.
 #          0.6_01 - Removed LOST, LOST-ASSUM as exclusion criteria. Now just LOST-ASSUM only.
@@ -39,7 +40,7 @@
 #          0.5_05 - Optimized selection criteria at selcatalog stage.
 #          0.5_04 - Changes to non-emailed account message.
 #          0.5_03 - Changes recommended by staff 
-#                   July 22, 2015: hold Cancelled, no copies available – title 07/22/2015
+#                   July 22, 2015: hold Cancelled, no copies available ï¿½ title 07/22/2015
 #          0.5_02 - Added count to confirm message. 
 #          0.5_01 - Updated to use new mask of pipe.pl. 
 #          0.5 - Experimental use of search URL in holdbot.pl -s. 
@@ -50,7 +51,7 @@
 #          0.0 - Dev.
 # Dependencies: holdbot.pl, 
 #               pipe.pl,
-#               mailerbot.pl
+#               mailerbothtml.pl
 #               opacsearchlink.pl
 #
 ####################################################
@@ -61,7 +62,7 @@
 # *** Edit these to suit your environment *** #
 . ~/.bashrc
 ###############################################
-VERSION='0.6_03'
+VERSION='1.00.00'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 
@@ -71,6 +72,7 @@ CANCEL_DATE=`date +%m/%d/%Y`
 LAST_ACTIVE_DATE_THRESHOLD=`transdate -d-60`
 WORK_DIR=~/Unicorn/EPLwork/cronjobscripts/Notifycancelholds
 BIN_CUSTOM=~/Unicorn/Bincustom
+LOG=$WORK_DIR/notification.log
 echo " -- starting $0 version $VERSION --"
 # Find and test for all our dependencies.
 if [ ! -e "$BIN_CUSTOM/holdbot.pl" ]
@@ -78,9 +80,9 @@ then
 	echo "** error: key component 'holdbot.pl' missing!"
 	exit 1;
 fi
-if [ ! -e "$BIN_CUSTOM/mailerbot.pl" ]
+if [ ! -e "$BIN_CUSTOM/mailerbothtml.sh" ]
 then
-	echo "** error: key component 'mailerbot.pl' missing!"
+	echo "** error: key component 'mailerbothtml.sh' missing!"
 	exit 1;
 fi
 if [ ! -e "$BIN_CUSTOM/pipe.pl" ]
@@ -225,7 +227,7 @@ then
 	# Cancel holds for these items on these titles.
 	cat $WORK_DIR/cat_keys_$DATE.lst | holdbot.pl -ctU >$WORK_DIR/no_link_notify_users_$DATE.lst
 	# 21221018015922|It's alive [sound recording] / Ramones|
-	# 21221024937960|Japanese ink painting : the art of sumí-e / Naomi Okamoto|
+	# 21221024937960|Japanese ink painting : the art of sumï¿½-e / Naomi Okamoto|
 	# 21221021982829|To the top of Everest / Laurie Skreslet with Elizabeth MacLeod|
 	# 21221015727818|Best of [sound recording] / Stampeders|
 	# 21221023784330|Best of [sound recording] / Stampeders|
@@ -245,7 +247,7 @@ then
 	# Create title links for convient searching from within the email we send.
 	cat $WORK_DIR/no_link_notify_users_$DATE.lst | opacsearchlink.pl -a -f'c1,c2,c3,c4,c5,c6,c7' >$WORK_DIR/notify_users_$DATE.lst
 	# 21221018015922|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=It%27s%20alive%20%5Bsound%20recording%5D">It's alive [sound recording] / Ramones</a><br/>||
-	# 21221024937960|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Japanese%20ink%20painting%20%3A%20the%20art%20of%20sum¦\055%2De">Japanese ink painting : the art of sum¦\055-e / Naomi Okamoto</a><br/>||
+	# 21221024937960|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Japanese%20ink%20painting%20%3A%20the%20art%20of%20sumï¿½\055%2De">Japanese ink painting : the art of sumï¿½\055-e / Naomi Okamoto</a><br/>||
 	# 21221021982829|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=To%20the%20top%20of%20Everest">To the top of Everest / Laurie Skreslet with Elizabeth MacLeod</a><br/>||
 	# 21221015727818|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
 	# 21221023784330|<a href="https://epl.bibliocommons.com/search?&t=smart&search_category=keyword&q=Best%20of%20%5Bsound%20recording%5D">Best of [sound recording] / Stampeders</a><br/>||
@@ -254,32 +256,18 @@ then
 	
 	if [ -s "$WORK_DIR/notify_users_$DATE.lst" ]
 	then
-		mailerbot.pl -h -c"$WORK_DIR/notify_users_$DATE.lst" -n"$WORK_DIR/cancel_holds_message.html" >$WORK_DIR/undeliverable_$DATE.lst
-		# Now use the undeliverable list and add a note on the customers account.
-		# It will be adequate to use the first 15 characters of the title and a short message to the account.
-		if [ -s "$WORK_DIR/undeliverable_$DATE.lst" ]
-		then
-			# Undeliverable customers need to have a different un-linked message on their account. 
-			# Find the list of undeliverable and diff with $WORK_DIR/no_link_notify_users_$DATE.lst
-			# diff.pl only outputs one match per comparison, but that's all that will fit in a comment on a customer account anyway.
-			# Show us the users from undeliverable and no_link_notify, with the results pulled from the no_link_notify.
-			echo "$WORK_DIR/no_link_notify_users_$DATE.lst and $WORK_DIR/undeliverable_$DATE.lst" | diff.pl -ec0 -fc0 >$WORK_DIR/no_link_add_note_$DATE.lst
-			# IFS='' (or IFS=) prevents leading/trailing whitespace from being trimmed.
-			# -r prevents backslash escapes from being interpreted.
-			# || [[ -n $line ]] prevents the last line from being ignored if it 
-			# doesn't end with a \n (since read returns a non-zero exit code 
-			# when it encounters EOF).
-			echo "reading in the undeliverable customers file..."
-			while IFS='' read -r line || [[ -n $line ]]; do
-				message=`echo "$line" | pipe.pl -o'c1' -m'c1:Hold cancelled\, no copies available -CMA- #######################_... '`$CANCEL_DATE
-				customer=`echo "$line" | pipe.pl -o'c0'`
-				echo "read '$message' for customer '$customer'"
-				echo "$customer" | addnote.pl -q -m"$message"
-			done < "$WORK_DIR/no_link_add_note_$DATE.lst"
-			echo "finished adding notes to customer accounts"
-		else
-			echo "all customers could be emailed, no need to add a note on their accounts."
-		fi
+		mailerbothtml.sh --log_file=$LOG --customers="$WORK_DIR/notify_users_$DATE.lst" --template="$WORK_DIR/OnOrderCancelHoldNotice.html"
+		# Remove me from the customer list so I don't get multiple notes on my account every time this runs.
+		grep -v "019003992" $WORK_DIR/no_link_notify_users_$DATE.lst >/tmp/scratch.tmp
+		cp /tmp/scratch.tmp $WORK_DIR/no_link_notify_users_$DATE.lst
+		echo "reading in the customers file..."
+		while IFS='' read -r line || [[ -n $line ]]; do
+			message=`echo "$line" | pipe.pl -o'c1' -m'c1:Hold cancelled\, no copies available -CMA- #######################_... '`$CANCEL_DATE
+			customer=`echo "$line" | pipe.pl -o'c0'`
+			echo "read '$message' for customer '$customer'"
+			echo "$customer" | addnote.pl -q -m"$message"
+		done < "$WORK_DIR/no_link_notify_users_$DATE.lst"
+		echo "finished adding notes to customer accounts"
 	else
 		echo "'$WORK_DIR/notify_users_$DATE.lst' not created, nothing to do."
 	fi

@@ -28,14 +28,13 @@
 ####################################################
 # Change comment below for appropriate server.
 # PRODUCTION_SERVER=edpl.sirsidynix.net
-PRODUCTION_SERVER=eplapp.library.ualberta.ca
-TEST_SERVER=edpl-t.library.ualberta.ca
+PRODUCTION_SERVER=edpl.sirsidynix.net
+TEST_SERVER=edpltest.sirsidynix.net
 USER=sirsi
 REMOTE=~/Unicorn/EPLwork/cronjobscripts/Notifycancelholds/
 LOCAL=~/projects/notifycancelholds/
 APP=notifycancelholds.sh
-NOTICE=cancel_holds_message.html
-ARGS=
+NOTICE=OnOrderCancelHoldNotice.html
 
 test:
 	scp ${LOCAL}${APP} ${USER}@${TEST_SERVER}:${REMOTE}

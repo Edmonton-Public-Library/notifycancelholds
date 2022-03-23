@@ -24,7 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Copyright (c) Mon Jun 22 15:51:12 MDT 2016
 # Rev: 
-#          1.00.00 - New release to use mailerbothtml.sh instead of mailerbot.pl.
+#          1.00.01 - New release to use mailerbothtml.sh instead of mailerbot.pl.
 #          0.6_03 - Fix mis-use of $HOME.
 #          0.6_02 - Add test for addnote.pl.
 #          0.6_01 - Removed LOST, LOST-ASSUM as exclusion criteria. Now just LOST-ASSUM only.
@@ -62,7 +62,7 @@
 # *** Edit these to suit your environment *** #
 . ~/.bashrc
 ###############################################
-VERSION='1.00.00'
+VERSION='1.00.01'
 DATE=` date +%Y%m%d`
 CANCEL_DATE=`date +%m/%d/%Y`
 # If an item was charged out and became LOST-ASSUM, wait this amount of time before 

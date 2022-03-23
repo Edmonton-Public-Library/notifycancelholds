@@ -256,7 +256,7 @@ then
 	
 	if [ -s "$WORK_DIR/notify_users_$DATE.lst" ]
 	then
-		mailerbothtml.sh --log_file=$LOG --customers="$WORK_DIR/notify_users_$DATE.lst" --template="$WORK_DIR/OnOrderCancelHoldNotice.html"
+		mailerbothtml.sh --log_file=$LOG --subject="EPL will be unable to fulfill your hold" --customers="$WORK_DIR/notify_users_$DATE.lst" --template="$WORK_DIR/OnOrderCancelHoldNotice.html"
 		# Remove me from the customer list so I don't get multiple notes on my account every time this runs.
 		grep -v "019003992" $WORK_DIR/no_link_notify_users_$DATE.lst >/tmp/scratch.tmp
 		cp /tmp/scratch.tmp $WORK_DIR/no_link_notify_users_$DATE.lst
